@@ -1,7 +1,11 @@
 package view;
 
+import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -11,7 +15,12 @@ import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.*;
 import model.Forecast;
 import model.Local;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
+import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +47,7 @@ public class ForecastView extends BorderPane {
         comboLocals = new ComboBox<>(listLocals);
 
         groupRegion = new ToggleGroup();
+
 
         RadioButton rb1 = new RadioButton("Todos");
         rb1.setToggleGroup(groupRegion);
@@ -93,7 +103,7 @@ public class ForecastView extends BorderPane {
         lista.add(null);
         lista.add(null);
 
-        atualizaPrevisao();
+        atualizaLocais();
 
         setCenter(gridForecasts);
 
@@ -111,10 +121,41 @@ public class ForecastView extends BorderPane {
         // -> Local getSelectedLocal()
         // e obter da API a previsao metereologica para este local.
         // De seguida popular a gridForecasts com os paineis respetivos
+
+        System.out.println(comboLocals.getSelectionModel().getSelectedItem());
     }
 
     public void atualizaLocais() {
-        // Obter lista de locais da API e refrescar modelo da combobox (listLocais)
+        Gson gson = new GsonBuilder().create();
+
+        List<Local> listaLocais = null;
+        OkHttpClient client = new OkHttpClient();
+        Request getRequest = new Request.Builder()
+                .url("https://api.ipma.pt/open-data/distrits-islands.json") // colocar o URL do endpoint aqui
+                .build();
+
+        try {
+            Response response = client.newCall(getRequest).execute();
+            String json = response.body().string();
+
+            JsonParser parser = new JsonParser();
+            JsonObject object = (JsonObject) parser.parse(json);
+            JsonArray data = object.getAsJsonArray("data");
+
+            Type listType = new TypeToken<ArrayList<Local>>(){}.getType();
+            listaLocais = gson.fromJson(data, listType);
+
+            ArrayList localAux = new ArrayList<>();
+            for(Local l : listaLocais){
+                localAux.add(l.getLocal());
+            }
+
+            listLocals.addAll(localAux);
+
+        } catch (
+                IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public String getRegiaoFiltro() {
@@ -128,7 +169,9 @@ public class ForecastView extends BorderPane {
     }
 
     public Local getSelectedLocal() {
+        System.out.println("sdgds" + comboLocals.getSelectionModel().getSelectedItem());
         return comboLocals.getSelectionModel().getSelectedItem();
+
     }
 
     public void showError(String title, String message) {
