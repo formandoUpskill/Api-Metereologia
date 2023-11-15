@@ -2,16 +2,13 @@ package view;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
-import javafx.event.EventHandler;
+import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.RadioButton;
-import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.util.StringConverter;
 import model.Forecast;
@@ -22,8 +19,12 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class ForecastView extends BorderPane {
 
@@ -33,6 +34,11 @@ public class ForecastView extends BorderPane {
     private ComboBox<Local> comboLocals;
     private GridPane gridForecasts;
     private ToggleGroup groupRegion;
+    private Forecast forecast;
+    private Label lblPrecipitacao;
+    private Label lblTempMin;
+    private Label lblTempMax;
+    private Label lblDate;
 
 
     enum OpRegiao {
@@ -119,6 +125,8 @@ public class ForecastView extends BorderPane {
         gridForecasts.getColumnConstraints().add(column);
         gridForecasts.getColumnConstraints().add(column);
         gridForecasts.getColumnConstraints().add(column);
+
+
         //Setting the padding
         gridForecasts.setPadding(new Insets(10,10,10,10));
         //Setting the vertical and horizontal gaps between the columns
@@ -156,8 +164,11 @@ public class ForecastView extends BorderPane {
 
         buttonForecast.setOnAction(event -> {
             atualizaPrevisao();
+            //lblDate.setText("Data:" + forecast.getForecastDate());
+
         });
     }
+
 
     public void atualizaPrevisao() {
         // Obter local selecionado da combobox (Local.getLocalGlobalId())
@@ -165,13 +176,14 @@ public class ForecastView extends BorderPane {
         // e obter da API a previsao metereologica para este local.
         // De seguida popular a gridForecasts com os paineis respetivos
 
+
+
         Local local= comboLocals.getSelectionModel().getSelectedItem();
 
         String url = "https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/" + local.getGlobalIdLocal();
 
         Gson gson = new GsonBuilder().create();
 
-        List<Forecast> listaForecast = null;
         OkHttpClient client = new OkHttpClient();
         Request getRequest = new Request.Builder()
                 .url(url).build();
@@ -187,19 +199,47 @@ public class ForecastView extends BorderPane {
 
             Type listType = new TypeToken<ArrayList<Forecast>>() {
             }.getType();
-            listaForecast = gson.fromJson(data, listType);
+            List<Forecast> listaForecast = gson.fromJson(data, listType);
 
-            for (Forecast l : listaForecast) {
-                System.out.println(l);
-            }
-
-
-
+            Platform.runLater(() -> exibirPrevisao(listaForecast));
 
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+    }
+
+    private void exibirPrevisao(List<Forecast> listaForecast){
+
+        for(int i = 0; i < listaForecast.size(); i++){
+            Forecast forecast = listaForecast.get(i);
+
+            LocalDate date = LocalDate.parse(forecast.getForecastDate(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String diaSmn = date.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("pt"));
+
+            Label lbldiaS = new Label(diaSmn);
+            gridForecasts.add(lbldiaS, i, 0);
+
+            lblDate = new Label ((i + 1) + forecast.getForecastDate());
+            lblTempMin = new Label(forecast.gettMin() + " C");
+            lblTempMax = new Label(forecast.gettMax() + " C");
+            lblPrecipitacao = new Label(forecast.getPrecipitaProb() + " %");
+
+            lblTempMin.setStyle("-fx-text-fill: blue;");
+            lblTempMax.setStyle("-fx-text-fill: red;");
+
+            gridForecasts.add(lblDate, i, 1);
+            gridForecasts.add(lblTempMin, i, 2);
+            gridForecasts.add(lblTempMax, i, 3);
+            gridForecasts.add(lblPrecipitacao, i, 4);
+
+            gridForecasts.setHalignment(lbldiaS, HPos.CENTER.CENTER);
+            gridForecasts.setHalignment(lblDate, HPos.CENTER.CENTER);
+            gridForecasts.setHalignment(lblTempMin, HPos.CENTER.CENTER);
+            gridForecasts.setHalignment(lblTempMax, HPos.CENTER.CENTER);
+            gridForecasts.setHalignment(lblPrecipitacao, HPos.CENTER.CENTER);
+
+        }
     }
 
     public void atualizaLocais() {
